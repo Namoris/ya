@@ -9,7 +9,6 @@ from threading import Thread
 import datetime
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.utils import executor
-from aiogram.utils.helper import Helper, HelperMode, Item
 from aiogram.types import ReplyKeyboardRemove, \
     ReplyKeyboardMarkup, KeyboardButton, \
     InlineKeyboardMarkup, InlineKeyboardButton
@@ -28,7 +27,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
 
-TOKEN = "912476327:AAHa150Mu0K1edjPQKxtZ4ZiGN3lvwt2tKs"
+TOKEN = ""
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent
 
