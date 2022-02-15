@@ -170,7 +170,6 @@ async def test_news():
     # инициализируем веб драйвер
     browser = get_driver(headless=headless)
     for zpr in zapros:
-        #output_filename = f"{zpr}_{output_timestamp}.csv"
         output_filename = f"{zpr}.csv"
         old_news = set()
         if Path.is_file(Path(BASE_DIR).joinpath(output_filename)):
@@ -211,9 +210,9 @@ async def connect_to_base(browser, zapros):
     base_url = f"https://yandex.ru/search/?text=%2B{zapros}+date%3A>{date_zpr}&lr=21"#&within=77"
     connection_attempts = 0
     current_page = 0
-    end_page = 2
+    end_page = 3
     output_list = []
-    while current_page <= end_page:
+    for current_page in range(end_page):
         await asyncio.sleep(random.randint(2,5))
         print(f"Scraping page #{current_page}...")
         try:
@@ -222,12 +221,12 @@ async def connect_to_base(browser, zapros):
                 await asyncio.sleep(5)
             else:
                 try:
-                    browser.find_element_by_class_name("pager__item_kind_next").click()
+                    btn = browser.find_element_by_class_name("pager__item_kind_next")
+                    btn.click()
                     await asyncio.sleep(3)
                 except:
                     break
             output_list = output_list + parse_html(browser.page_source)
-            current_page = current_page + 1
         except Exception as e:
             print(e)
             await asyncio.sleep(random.randint(3,5))
@@ -235,6 +234,7 @@ async def connect_to_base(browser, zapros):
             await asyncio.sleep(random.randint(3,5))
             print(f"Error connecting to {base_url}.")
             print(f"Attempt #{connection_attempts}.")
+            output_list = output_list + parse_html(browser.page_source)
     return output_list
 
 
