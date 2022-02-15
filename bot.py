@@ -50,7 +50,7 @@ class TestStates(Helper):
     TEST_STATE_1 = ListItem()
     TEST_STATE_2 = ListItem()
 
-@dp.callback_query_handler(lambda c: c.data == 'one_zpr')
+@dp.callback_query_handler(text= 'one_zpr')
 async def process_callback_button1(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
     state = dp.current_state(user=callback_query.from_user.id)
@@ -59,7 +59,7 @@ async def process_callback_button1(callback_query: types.CallbackQuery):
     print(await state.get_state())
     await bot.send_message(callback_query.from_user.id, 'Введите запрос:')
 
-@dp.callback_query_handler(lambda c: c.data == 'btn_subscribe')
+@dp.callback_query_handler(text= 'btn_subscribe')
 async def process_callback_button2(callback_query: types.CallbackQuery):
     state = dp.current_state(user=callback_query.from_user.id)
     #print(callback_query.id)
