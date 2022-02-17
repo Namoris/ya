@@ -24,6 +24,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from telegram import ReplyMarkup
 from webdriver_manager.chrome import ChromeDriverManager
 
 
@@ -50,11 +51,67 @@ async def process_callback_button1(callback_query: types.CallbackQuery):
     await callback_query.message.answer("Введите запрос:")
     await ZprStates.ONE_ZPR_STATE.set()
 
+async def inline_menu(id):
+    #inline_btn_1 = InlineKeyboardButton('Разовый запрос', callback_data='one_zpr')
+    inline_btn_1 = InlineKeyboardButton('Новая подписка', callback_data='btn_subscribe')
+    inline_btn_2 = InlineKeyboardButton('Мои подписки', callback_data='my_subscribe')
+    inline_kb1 = InlineKeyboardMarkup().add(inline_btn_1).add(inline_btn_2)
+    await bot.send_message(id, "Выберите интересующий пункт меню:", reply_markup=inline_kb1)
 
-@dp.callback_query_handler(text= 'btn_subscribe')
+@dp.callback_query_handler(text= 'my_subscribe', state='*')
+async def process_callback_button1(callback_query: types.CallbackQuery):
+    file_name = Path(BASE_DIR).joinpath(f"{callback_query.from_user.id}.csv")
+    inline_btn = InlineKeyboardButton('Отписаться', callback_data='del_subscribe')
+    if Path.is_file(file_name):
+        with open(file_name, "r", encoding="utf-8") as f:
+            for line in f:
+                await callback_query.message.answer(line, reply_markup= InlineKeyboardMarkup().add(inline_btn))    
+    else:
+        await callback_query.message.answer('У вас нет подписок')
+        await inline_menu(callback_query.from_user.id)
+    await callback_query.answer()
+
+@dp.callback_query_handler(text= 'del_subscribe', state='*')
+async def process_callback_button1(callback_query: types.CallbackQuery):
+    del_zpr = callback_query.message.text
+    list_zpr = []
+    current_file = Path(BASE_DIR).joinpath(f"{callback_query.from_user.id}.csv")
+    with open(current_file, "r", encoding="utf-8") as f:
+        list_zpr = f.readlines()
+        list_zpr.remove(del_zpr + '\n')
+    if list_zpr:
+        with open(current_file, "w", encoding="utf-8") as f:
+            f.writelines(list_zpr)
+    else:
+        current_file.unlink()
+    current_file = Path(BASE_DIR).joinpath(f"{del_zpr}_list.csv")
+    with open(current_file, "r", encoding="utf-8") as f:
+        list_id = f.readlines()
+        list_id.remove(str(callback_query.from_user.id) + '\n')
+    if list_id:
+        with open(current_file, "w", encoding="utf-8") as f:
+            f.writelines(list_id)
+    else:
+        current_file.unlink()
+        if Path.is_file(Path(BASE_DIR).joinpath(f"{del_zpr}.csv")):
+            Path(BASE_DIR).joinpath(f"{del_zpr}.csv").unlink()
+    if not list_id:
+        with open(Path(BASE_DIR).joinpath(f"zapros.txt"), "r", encoding="utf-8") as f:
+            list_zpr = f.readlines()
+            list_zpr.remove(del_zpr + '\n')
+        with open(Path(BASE_DIR).joinpath(f"zapros.txt"), "w", encoding="utf-8") as f:
+            f.writelines(list_zpr)
+
+    await callback_query.message.answer("Подписка удалена")
+    await inline_menu(callback_query.from_user.id)
+    await callback_query.answer()
+
+
+@dp.callback_query_handler(text= 'btn_subscribe', state='*')
 async def process_callback_button2(callback_query: types.CallbackQuery):
     await callback_query.message.answer("Введите запрос:")
     await ZprStates.SUBSCRIBE_STATE.set()
+    await callback_query.answer()
 
 
 @dp.callback_query_handler(text="one_zpr_true")
@@ -67,49 +124,46 @@ async def process_callback_button3(callback_query: types.CallbackQuery):
     for l in list:
         await callback_query.message.answer(l)
     browser.quit()
-    await callback_query.message.answer("Выберите интересующий пункт меню:", reply_markup=inline_menu())
-    
+    await inline_menu(callback_query.from_user.id)
+    await callback_query.answer()
 
-@dp.callback_query_handler(text="Menu")
+
+@dp.callback_query_handler(text="Menu", state='*')
 async def process_callback_menu(callback_query: types.CallbackQuery):
-    await bot.send_message(callback_query.from_user.id, "Выберите интересующий пункт меню:", reply_markup=inline_menu())
+    await inline_menu(callback_query.from_user.id)
+    await callback_query.answer()
 
 
-def inline_menu():
-    inline_btn_1 = InlineKeyboardButton('Разовый запрос', callback_data='one_zpr')
-    inline_btn_2 = InlineKeyboardButton('Подписка', callback_data='btn_subscribe')
-    inline_kb1 = InlineKeyboardMarkup().add(inline_btn_1).add(inline_btn_2)
-    return inline_kb1 
-
-
-@dp.callback_query_handler(text="btn_subscribe_true")
+@dp.callback_query_handler(text="btn_subscribe_true", state='*')
 async def process_callback_button4(callback_query: types.CallbackQuery):
     id = callback_query.from_user.id 
-    await bot.send_message(id, "Пожалуйста, ожидайте")
+    #await bot.send_message(id, "Пожалуйста, ожидайте")
     zpr = callback_query.message.text.lower()
     output_filename = f"{zpr}.csv"
-    flag = 1
-    if Path.is_file(Path(BASE_DIR).joinpath(f"{zpr}_list.csv")):
-        with open(Path(BASE_DIR).joinpath(f"{zpr}_list.csv"), "r", encoding="utf-8") as f:
-            if str(id) in f.read():
-                flag = 0
-    if flag:
-        with open(Path(BASE_DIR).joinpath(f"{zpr}_list.csv"), "a", encoding="utf-8") as f:
+    with open(Path(BASE_DIR).joinpath(f"{id}.csv"), "a+", encoding="utf-8") as f:
+        f.seek(0)
+        f_text = f.read()
+        if zpr + '\n' not in f_text:
+            f.write(zpr + '\n')
+    with open(Path(BASE_DIR).joinpath(f"{zpr}_list.csv"), "a+", encoding="utf-8") as f:
+        f.seek(0)
+        f_text = f.read()
+        if str(id) + '\n' not in f_text:
             f.write(str(id) + '\n')
-    zapros = set()
-    if Path.is_file(Path(BASE_DIR).joinpath("zapros.txt")):
-        with open(Path(BASE_DIR).joinpath("zapros.txt"), "r", encoding="utf-8") as f:
-            for line in f:
-                zapros.add(line.rstrip())
-    if zpr not in zapros:
-        with open(Path(BASE_DIR).joinpath("zapros.txt"), "a", encoding="utf-8") as f:
-            f.write(zpr + "\n")
-    browser = get_driver(False)
-    list = await connect_to_base(browser, zpr)
-    for l in list:
-        await bot.send_message(id, l)
-    browser.quit()
-    await callback_query.message.answer("Выберите интересующий пункт меню:", reply_markup=inline_menu())
+    with open(Path(BASE_DIR).joinpath("zapros.txt"), "a+", encoding="utf-8") as f:
+        f.seek(0)
+        find_zpr = zpr + '\n'
+        f_text = f.read()
+        if find_zpr not in f_text:
+            f.write(find_zpr)         
+    #browser = get_driver(False)
+    #list = await connect_to_base(browser, zpr)
+    #for l in list:
+        #await bot.send_message(id, l)
+    #browser.quit()
+    await inline_menu(callback_query.from_user.id)
+    await callback_query.answer()
+
 
 
 @dp.message_handler(state=ZprStates.ONE_ZPR_STATE)
@@ -134,17 +188,20 @@ async def first_test_state_case_met(message: types.Message, state: FSMContext):
     await bot.send_message(message.from_user.id, message.text, reply_markup=inline_kb1)
 
 
-@dp.message_handler(commands=['start'])
+@dp.message_handler(commands=['start'], state = '*')
 async def process_start_command(message: types.Message):
     state = dp.current_state(user=message.from_user.id)
     await state.reset_state()
-    await message.reply("Выберите интересующий пункт меню:", reply_markup=inline_menu(), reply = False)
+    await inline_menu(message.from_user.id)
 
 
 @dp.message_handler()
 async def echo_message(message: types.Message):
-    await message.reply("Выберите интересующий пункт меню:", reply_markup= inline_menu())
+    await inline_menu(message.from_user.id)
 
+@dp.callback_query_handler(lambda x: 1)
+async def process_callback_button1(callback_query: types.CallbackQuery):
+    print(callback_query)
 
 async def scheduler():
     aioschedule.every(10).minutes.do(test_news)
@@ -160,13 +217,12 @@ async def on_startup(_):
 async def test_news():
     headless = False 
     zapros = []
+    if not Path.is_file(Path(BASE_DIR).joinpath('zapros.txt')):
+        return
     with open(Path(BASE_DIR).joinpath("zapros.txt"), "r", encoding="utf-8") as f:
         for line in f:
             zapros.append(line.rstrip())
-    if len(zapros) > len(set(zapros)):
-            with open(Path(BASE_DIR).joinpath("zapros.txt"), "w", encoding="utf-8") as f:
-                for line in set(zapros):
-                    f.write(line+"\n")
+
     # инициализируем веб драйвер
     browser = get_driver(headless=headless)
     for zpr in zapros:
@@ -193,6 +249,7 @@ async def newsletter(filename, list):
                 for news in list:
                     await bot.send_message(line, news)
                     await asyncio.sleep(1)
+                await inline_menu(line)
 
 
 def get_driver(headless):
