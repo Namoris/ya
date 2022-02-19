@@ -13,6 +13,7 @@ from aiogram.types import ReplyKeyboardRemove, \
     ReplyKeyboardMarkup, KeyboardButton, \
     InlineKeyboardMarkup, InlineKeyboardButton
 import aioschedule
+import os
 
 import csv
 from pathlib import Path
@@ -29,9 +30,9 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 
 TOKEN = ""
-
+client_id = 
 BASE_DIR = Path(__file__).resolve(strict=True).parent
-
+os.chdir(BASE_DIR)
 logging.basicConfig(format=u'%(filename)+13s [ LINE:%(lineno)-4s] %(levelname)-8s [%(asctime)s] %(message)s',
                     level=logging.DEBUG)
                     
@@ -190,10 +191,17 @@ async def first_test_state_case_met(message: types.Message, state: FSMContext):
 
 @dp.message_handler(commands=['start'], state = '*')
 async def process_start_command(message: types.Message):
+    print(message)
     state = dp.current_state(user=message.from_user.id)
     await state.reset_state()
     await inline_menu(message.from_user.id)
 
+
+@dp.message_handler(chat_id = client_id, state = '*')
+async def echo_message(message: types.Message):
+    zpr, news = message.text.split('&&&&&&&&') 
+
+    await newsletter(zpr,[news])
 
 @dp.message_handler()
 async def echo_message(message: types.Message):
