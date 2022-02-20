@@ -43,34 +43,27 @@ dp.middleware.setup(LoggingMiddleware())
 
 
 class ZprStates(StatesGroup):
-    ONE_ZPR_STATE = State()
     SUBSCRIBE_STATE = State()
 
 
-@dp.callback_query_handler(text= 'one_zpr')
-async def process_callback_button1(callback_query: types.CallbackQuery):
-    await callback_query.message.answer("Введите запрос:")
-    await ZprStates.ONE_ZPR_STATE.set()
 
-async def inline_menu(id):
-    #inline_btn_1 = InlineKeyboardButton('Разовый запрос', callback_data='one_zpr')
-    inline_btn_1 = InlineKeyboardButton('Новая подписка', callback_data='btn_subscribe')
-    inline_btn_2 = InlineKeyboardButton('Мои подписки', callback_data='my_subscribe')
-    inline_kb1 = InlineKeyboardMarkup().add(inline_btn_1).add(inline_btn_2)
-    await bot.send_message(id, "Выберите интересующий пункт меню:", reply_markup=inline_kb1)
+@dp.message_handler(commands=['new_subscribe'], state = '*')
+async def process_new_subscribe_command(message: types.Message):
+    await message.answer("Введите запрос:")
+    await ZprStates.SUBSCRIBE_STATE.set()
 
-@dp.callback_query_handler(text= 'my_subscribe', state='*')
-async def process_callback_button1(callback_query: types.CallbackQuery):
-    file_name = Path(BASE_DIR).joinpath(f"{callback_query.from_user.id}.csv")
+
+@dp.message_handler(commands=['my_subscribe'], state = '*')
+async def process_new_subscribe_command(message: types.Message):
+    file_name = Path(BASE_DIR).joinpath(f"{message.from_user.id}.csv")
     inline_btn = InlineKeyboardButton('Отписаться', callback_data='del_subscribe')
     if Path.is_file(file_name):
         with open(file_name, "r", encoding="utf-8") as f:
             for line in f:
-                await callback_query.message.answer(line, reply_markup= InlineKeyboardMarkup().add(inline_btn))    
+                await message.answer(line, reply_markup= InlineKeyboardMarkup().add(inline_btn))    
     else:
-        await callback_query.message.answer('У вас нет подписок')
-        await inline_menu(callback_query.from_user.id)
-    await callback_query.answer()
+        await message.answer('У вас нет подписок')
+
 
 @dp.callback_query_handler(text= 'del_subscribe', state='*')
 async def process_callback_button1(callback_query: types.CallbackQuery):
@@ -104,43 +97,15 @@ async def process_callback_button1(callback_query: types.CallbackQuery):
             f.writelines(list_zpr)
 
     await callback_query.message.answer("Подписка удалена")
-    await inline_menu(callback_query.from_user.id)
     await callback_query.answer()
 
 
-@dp.callback_query_handler(text= 'btn_subscribe', state='*')
-async def process_callback_button2(callback_query: types.CallbackQuery):
-    await callback_query.message.answer("Введите запрос:")
-    await ZprStates.SUBSCRIBE_STATE.set()
-    await callback_query.answer()
-
-
-@dp.callback_query_handler(text="one_zpr_true")
-async def process_callback_button3(callback_query: types.CallbackQuery):
-    await callback_query.message.answer( "Пожалуйста, ожидайте")
-    browser = get_driver(False)
-    zpr = callback_query.message.text 
-    output_filename = f"{zpr}.csv"
-    list = await connect_to_base(browser, zpr)
-    for l in list:
-        await callback_query.message.answer(l)
-    browser.quit()
-    await inline_menu(callback_query.from_user.id)
-    await callback_query.answer()
-
-
-@dp.callback_query_handler(text="Menu", state='*')
-async def process_callback_menu(callback_query: types.CallbackQuery):
-    await inline_menu(callback_query.from_user.id)
-    await callback_query.answer()
-
-
-@dp.callback_query_handler(text="btn_subscribe_true", state='*')
-async def process_callback_button4(callback_query: types.CallbackQuery):
-    id = callback_query.from_user.id 
+@dp.message_handler(state=ZprStates.SUBSCRIBE_STATE)
+async def first_test_state_case_met(message: types.Message, state: FSMContext):
+    await state.reset_state()
+    id = message.from_user.id 
     #await bot.send_message(id, "Пожалуйста, ожидайте")
-    zpr = callback_query.message.text.lower()
-    output_filename = f"{zpr}.csv"
+    zpr = message.text.lower()
     with open(Path(BASE_DIR).joinpath(f"{id}.csv"), "a+", encoding="utf-8") as f:
         f.seek(0)
         f_text = f.read()
@@ -157,36 +122,7 @@ async def process_callback_button4(callback_query: types.CallbackQuery):
         f_text = f.read()
         if find_zpr not in f_text:
             f.write(find_zpr)         
-    #browser = get_driver(False)
-    #list = await connect_to_base(browser, zpr)
-    #for l in list:
-        #await bot.send_message(id, l)
-    #browser.quit()
-    await inline_menu(callback_query.from_user.id)
-    await callback_query.answer()
-
-
-
-@dp.message_handler(state=ZprStates.ONE_ZPR_STATE)
-async def first_test_state_case_met(message: types.Message, state: FSMContext): 
-    await state.reset_state()
-    await bot.send_message(message.from_user.id, "Подтвердите правильность запроса\nВаш запрос:")
-    inline_btn_1 = InlineKeyboardButton('Верно', callback_data='one_zpr_true')
-    inline_btn_2 = InlineKeyboardButton('Изменить', callback_data='one_zpr')
-    inline_btn_3 = InlineKeyboardButton('Меню', callback_data='Menu')
-    inline_kb1 = InlineKeyboardMarkup().add(inline_btn_1).add(inline_btn_2).add(inline_btn_3)
-    await bot.send_message(message.from_user.id, message.text, reply_markup=inline_kb1)
-
-
-@dp.message_handler(state=ZprStates.SUBSCRIBE_STATE)
-async def first_test_state_case_met(message: types.Message, state: FSMContext):
-    await state.reset_state()
-    await bot.send_message(message.from_user.id, "Подтвердите правильность запроса\nВаш запрос:")
-    inline_btn_1 = InlineKeyboardButton('Верно', callback_data='btn_subscribe_true')
-    inline_btn_2 = InlineKeyboardButton('Изменить', callback_data='btn_subscribe')
-    inline_btn_3 = InlineKeyboardButton('Меню', callback_data='Menu')
-    inline_kb1 = InlineKeyboardMarkup().add(inline_btn_1).add(inline_btn_2).add(inline_btn_3)
-    await bot.send_message(message.from_user.id, message.text, reply_markup=inline_kb1)
+    await message.answer(f'Вы подписались на\n{zpr}')
 
 
 @dp.message_handler(commands=['start'], state = '*')
@@ -194,7 +130,6 @@ async def process_start_command(message: types.Message):
     print(message)
     state = dp.current_state(user=message.from_user.id)
     await state.reset_state()
-    await inline_menu(message.from_user.id)
 
 
 @dp.message_handler(chat_id = client_id, state = '*')
@@ -203,13 +138,13 @@ async def echo_message(message: types.Message):
 
     await newsletter(zpr,[news])
 
+
 @dp.message_handler()
 async def echo_message(message: types.Message):
-    await inline_menu(message.from_user.id)
+    if message.text == "проверка":
+        await test_news()
+    await message.answer("Выберите пункт меню")
 
-@dp.callback_query_handler(lambda x: 1)
-async def process_callback_button1(callback_query: types.CallbackQuery):
-    print(callback_query)
 
 async def scheduler():
     aioschedule.every(10).minutes.do(test_news)
@@ -241,7 +176,8 @@ async def test_news():
                 for line in f:
                     old_news.add(line.split('    ')[0])
         new_news = set()
-        for news in await connect_to_base(browser, zpr):
+        list_new_news = await connect_to_base(browser, zpr)
+        for news in list_new_news:
             if news.split('    ')[0] not in old_news:
                 new_news.add(news) 
 
@@ -255,9 +191,12 @@ async def newsletter(filename, list):
     with open(Path(BASE_DIR).joinpath(filename), "r", encoding="utf-8") as f:
             for line in f:
                 for news in list:
-                    await bot.send_message(line, news)
+                    if '    ' in news:
+                        news_ya = news.split('    ')
+                        await bot.send_message(line, f"{news_ya[0]}\n[Ссылка на источник]({news_ya[1]})", parse_mode='Markdown')    
+                    else:
+                        await bot.send_message(line, news)
                     await asyncio.sleep(1)
-                await inline_menu(line)
 
 
 def get_driver(headless):
@@ -275,31 +214,25 @@ async def connect_to_base(browser, zapros):
     base_url = f"https://yandex.ru/search/?text=%2B{zapros}+date%3A>{date_zpr}&lr=21"#&within=77"
     connection_attempts = 0
     current_page = 0
-    end_page = 3
+    end_page = 2
     output_list = []
+    browser.get(base_url)
     for current_page in range(end_page):
         await asyncio.sleep(random.randint(2,5))
         print(f"Scraping page #{current_page}...")
+        html_page = browser.page_source
         try:
-            if current_page == 0:
-                browser.get(base_url)
-                await asyncio.sleep(5)
-            else:
-                try:
-                    btn = browser.find_element_by_class_name("pager__item_kind_next")
-                    btn.click()
-                    await asyncio.sleep(3)
-                except:
-                    break
-            output_list = output_list + parse_html(browser.page_source)
-        except Exception as e:
-            print(e)
-            await asyncio.sleep(random.randint(3,5))
-            browser.find_element_by_class_name("CheckboxCaptcha-Anchor").click()
-            await asyncio.sleep(random.randint(3,5))
-            print(f"Error connecting to {base_url}.")
-            print(f"Attempt #{connection_attempts}.")
-            output_list = output_list + parse_html(browser.page_source)
+            btn = browser.find_element_by_class_name("pager__item_kind_next")
+            btn.click()
+            await asyncio.sleep(2)
+        except:
+            try:
+                browser.find_element_by_class_name("CheckboxCaptcha-Anchor").click()
+                await asyncio.sleep(random.randint(3,5))
+                output_list = output_list + parse_html(browser.page_source)
+            except:
+                output_list = output_list + parse_html(html_page)
+                break
     return output_list
 
 
@@ -309,22 +242,22 @@ def parse_html(html):
     output_list = []
     tr_blocks = soup.find_all('a', class_='OrganicTitle-Link')
     for tr in tr_blocks:
-        str_result = tr.find(class_="OrganicTitleContentSpan organic__title").text + "    " + str(tr.get("href")) + '\n'
+        str_result = tr.find(class_="OrganicTitleContentSpan organic__title").text + "    " + str(tr.get("href"))
         # добавляем информацию о статье в список
         output_list.append(str_result)
     tr_blocks = soup.find_all('a', class_='mini-snippet__title')
     for tr in tr_blocks:
         if tr.find(class_="cutted"):
-            str_result = tr.find(class_="cutted").text + "    " + str(tr.get("href")) + '\n'
+            str_result = tr.find(class_="cutted").text + "    " + str(tr.get("href"))
         else:
-            str_result = tr.text + "    " + str(tr.get("href")) + '\n'
+            str_result = tr.text + "    " + str(tr.get("href"))
         output_list.append(str_result)
     return output_list
 
 def write_to_file(output_list, filename):
     with open(Path(BASE_DIR).joinpath(filename), "a", encoding="utf-8") as csvfile:
         for row in output_list:
-            csvfile.write(row)
+            csvfile.write(f"{row}\n")
 
 
 if __name__ == '__main__':
